@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
-const _timeStampKey = '_pdl_timeStamp_';
+const String _timeStampKey = '_pdl_timeStamp_';
 
 class _Colors {
   static const String reset = '\x1B[0m';
@@ -59,12 +59,11 @@ class DioLogger extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final extra = Map.of(options.extra);
+    final Map<String, dynamic> extra = Map<String, dynamic>.of(options.extra);
     options.extra[_timeStampKey] = DateTime.timestamp().millisecondsSinceEpoch;
 
     if (!enabled ||
-        (filter != null &&
-            !filter!(options, FilterArgs(false, options.data)))) {
+        (filter != null && !filter!(options, FilterArgs(isResponse: false, data: options.data)))) {
       handler.next(options);
       return;
     }
@@ -78,8 +77,7 @@ class DioLogger extends Interceptor {
         header: 'Query Parameters',
         color: _Colors.green,
       );
-      final requestHeaders = <String, dynamic>{};
-      requestHeaders.addAll(options.headers);
+      final Map<String, dynamic> requestHeaders = <String, dynamic>{}..addAll(options.headers);
       if (options.contentType != null) {
         requestHeaders['contentType'] = options.contentType?.toString();
       }
@@ -99,13 +97,13 @@ class DioLogger extends Interceptor {
       if (data != null) {
         if (data is Map) {
           _printMapAsTable(
-            options.data as Map?,
+            options.data as Map<String, dynamic>?,
             header: 'Body 🚀',
             color: _Colors.green,
             ht: true,
           );
         } else if (data is FormData) {
-          final formDataMap = <String, dynamic>{}
+          final Map<String, dynamic> formDataMap = <String, dynamic>{}
             ..addEntries(data.fields)
             ..addEntries(data.files);
           _printMapAsTable(
@@ -127,22 +125,22 @@ class DioLogger extends Interceptor {
         (filter != null &&
             !filter!(
               err.requestOptions,
-              FilterArgs(true, err.response?.data),
+              FilterArgs(isResponse: true, data: err.response?.data),
             ))) {
       handler.next(err);
       return;
     }
 
-    final triggerTime = err.requestOptions.extra[_timeStampKey];
+    final Object? triggerTime = err.requestOptions.extra[_timeStampKey];
 
     if (error) {
       if (err.type == DioExceptionType.badResponse) {
-        final uri = err.response?.requestOptions.uri;
+        final Uri? uri = err.response?.requestOptions.uri;
         int diff = 0;
         if (triggerTime is int) {
           diff = DateTime.timestamp().millisecondsSinceEpoch - triggerTime;
         }
-        const blink = '\x1B[5m';
+        const String blink = '\x1B[5m';
 
         _printBoxed(
           header:
@@ -151,7 +149,7 @@ class DioLogger extends Interceptor {
           color: _Colors.red,
         );
         if (err.response != null && err.response?.data != null) {
-          logPrint(_colorize('╔ ${err.type.toString()}', _Colors.red));
+          logPrint(_colorize('╔ ${err.type}', _Colors.red));
           _printResponse(err.response!, color: _Colors.red);
         }
         _printLine(color: _Colors.red);
@@ -168,18 +166,18 @@ class DioLogger extends Interceptor {
   }
 
   @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
     if (!enabled ||
         (filter != null &&
             !filter!(
               response.requestOptions,
-              FilterArgs(true, response.data),
+              FilterArgs(isResponse: true, data: response.data),
             ))) {
       handler.next(response);
       return;
     }
 
-    final triggerTime = response.requestOptions.extra[_timeStampKey];
+    final Object? triggerTime = response.requestOptions.extra[_timeStampKey];
 
     int diff = 0;
     if (triggerTime is int) {
@@ -187,9 +185,9 @@ class DioLogger extends Interceptor {
     }
     _printResponseHeader(response, diff);
     if (responseHeader) {
-      final responseHeaders = <String, String>{};
+      final Map<String, String> responseHeaders = <String, String>{};
       response.headers.forEach(
-        (k, list) => responseHeaders[k] = list.toString(),
+        (String k, List<String> list) => responseHeaders[k] = list.toString(),
       );
       _printMapAsTable(
         responseHeaders,
@@ -203,7 +201,7 @@ class DioLogger extends Interceptor {
       logPrint(_colorize('║', _Colors.white));
       _printResponse(response);
       logPrint(_colorize('║', _Colors.white));
-      _printLine(color: _Colors.white);
+      _printLine();
     }
     handler.next(response);
   }
@@ -219,17 +217,17 @@ class DioLogger extends Interceptor {
     _printLine(color: color);
   }
 
-  void _printResponse(Response response, {String color = _Colors.white}) {
+  void _printResponse(Response<dynamic> response, {String color = _Colors.white}) {
     if (response.data != null) {
       if (response.data is Map) {
-        _printPrettyMap(response.data as Map, color: color);
+        _printPrettyMap(response.data as Map<dynamic, dynamic>, color: color);
       } else if (response.data is Uint8List) {
         logPrint(_colorize('║${_indent()}[', color));
         _printUint8List(response.data as Uint8List, color: color);
         logPrint(_colorize('║${_indent()}]', color));
       } else if (response.data is List) {
         logPrint(_colorize('║${_indent()}[', color));
-        _printList(response.data as List, color: color);
+        _printList(response.data as List<dynamic>, color: color);
         logPrint(_colorize('║${_indent()}]', color));
       } else {
         _printBlock(response.data.toString(), color: color);
@@ -237,13 +235,11 @@ class DioLogger extends Interceptor {
     }
   }
 
-  void _printResponseHeader(Response response, int responseTime) {
-    final uri = response.requestOptions.uri;
-    final method = response.requestOptions.method;
-    final statusColor =
-        (response.statusCode != null &&
-            response.statusCode! >= 200 &&
-            response.statusCode! < 300)
+  void _printResponseHeader(Response<dynamic> response, int responseTime) {
+    final Uri uri = response.requestOptions.uri;
+    final String method = response.requestOptions.method;
+    final String statusColor =
+        (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300)
         ? _Colors.green
         : _Colors.red;
 
@@ -256,8 +252,8 @@ class DioLogger extends Interceptor {
   }
 
   void _printRequestHeader(RequestOptions options) {
-    final uri = options.uri;
-    final method = options.method;
+    final Uri uri = options.uri;
+    final String method = options.method;
     _printBoxed(
       header: 'Request ║ $method ',
       text: uri.toString(),
@@ -272,8 +268,8 @@ class DioLogger extends Interceptor {
   }) => logPrint(_colorize('$pre${'═' * maxWidth}$suf', color));
 
   void _printKV(String? key, Object? v, {String color = _Colors.white}) {
-    final pre = '╟ $key: ';
-    final msg = v.toString();
+    final String pre = '╟ $key: ';
+    final String msg = v.toString();
 
     if (pre.length + msg.length > maxWidth) {
       logPrint(_colorize(pre, color));
@@ -284,8 +280,8 @@ class DioLogger extends Interceptor {
   }
 
   void _printBlock(String msg, {String color = _Colors.white}) {
-    final lines = (msg.length / maxWidth).ceil();
-    for (var i = 0; i < lines; ++i) {
+    final int lines = (msg.length / maxWidth).ceil();
+    for (int i = 0; i < lines; ++i) {
       logPrint(
         _colorize(
           (i >= 0 ? '║ ' : '') +
@@ -302,25 +298,25 @@ class DioLogger extends Interceptor {
   String _indent([int tabCount = kInitialTab]) => tabStep * tabCount;
 
   void _printPrettyMap(
-    Map data, {
+    Map<dynamic, dynamic> data, {
     int initialTab = kInitialTab,
     bool isListItem = false,
     bool isLast = false,
     String color = _Colors.white,
   }) {
-    var tabs = initialTab;
-    final isRoot = tabs == kInitialTab;
-    final initialIndent = _indent(tabs);
+    int tabs = initialTab;
+    final bool isRoot = tabs == kInitialTab;
+    final String initialIndent = _indent(tabs);
     tabs++;
 
     if (isRoot || isListItem) logPrint(_colorize('║$initialIndent{', color));
 
-    for (var index = 0; index < data.length; index++) {
-      final isLast = index == data.length - 1;
-      final key = '"${data.keys.elementAt(index)}"';
+    for (int index = 0; index < data.length; index++) {
+      final bool isLast = index == data.length - 1;
+      final String key = '"${data.keys.elementAt(index)}"';
       dynamic value = data[data.keys.elementAt(index)];
       if (value is String) {
-        value = '"${value.toString().replaceAll(RegExp(r'([\r\n])+'), " ")}"';
+        value = '"${value.replaceAll(RegExp(r'([\r\n])+'), " ")}"';
       }
       if (value is Map) {
         if (compact && _canFlattenMap(value)) {
@@ -337,7 +333,7 @@ class DioLogger extends Interceptor {
       } else if (value is List) {
         if (compact && _canFlattenList(value)) {
           logPrint(
-            _colorize('║${_indent(tabs)} $key: ${value.toString()}', color),
+            _colorize('║${_indent(tabs)} $key: $value', color),
           );
         } else {
           logPrint(_colorize('║${_indent(tabs)} $key: [', color));
@@ -345,13 +341,13 @@ class DioLogger extends Interceptor {
           logPrint(_colorize('║${_indent(tabs)} ]${isLast ? '' : ','}', color));
         }
       } else {
-        final msg = value.toString().replaceAll('\n', '');
-        final indent = _indent(tabs);
-        final linWidth = maxWidth - indent.length;
+        final String msg = value.toString().replaceAll('\n', '');
+        final String indent = _indent(tabs);
+        final int linWidth = maxWidth - indent.length;
         if (msg.length + indent.length > linWidth) {
-          final lines = (msg.length / linWidth).ceil();
-          for (var i = 0; i < lines; ++i) {
-            final multilineKey = i == 0 ? "$key:" : "";
+          final int lines = (msg.length / linWidth).ceil();
+          for (int i = 0; i < lines; ++i) {
+            final String multilineKey = i == 0 ? '$key:' : '';
             logPrint(
               _colorize(
                 '║${_indent(tabs)} $multilineKey ${msg.substring(i * linWidth, math.min<int>(i * linWidth + linWidth, msg.length))}',
@@ -376,13 +372,13 @@ class DioLogger extends Interceptor {
   }
 
   void _printList(
-    List list, {
+    List<dynamic> list, {
     int tabs = kInitialTab,
     String color = _Colors.white,
   }) {
-    for (var i = 0; i < list.length; i++) {
-      final element = list[i];
-      final isLast = i == list.length - 1;
+    for (int i = 0; i < list.length; i++) {
+      final dynamic element = list[i];
+      final bool isLast = i == list.length - 1;
       if (element is Map) {
         if (compact && _canFlattenMap(element)) {
           logPrint(
@@ -416,8 +412,8 @@ class DioLogger extends Interceptor {
     int tabs = kInitialTab,
     String color = _Colors.white,
   }) {
-    var chunks = [];
-    for (var i = 0; i < list.length; i += chunkSize) {
+    final List<Uint8List> chunks = <Uint8List>[];
+    for (int i = 0; i < list.length; i += chunkSize) {
       chunks.add(
         list.sublist(
           i,
@@ -425,31 +421,29 @@ class DioLogger extends Interceptor {
         ),
       );
     }
-    for (var element in chunks) {
+    for (final Uint8List element in chunks) {
       logPrint(_colorize('║${_indent(tabs)} ${element.join(", ")}', color));
     }
   }
 
-  bool _canFlattenMap(Map map) {
-    return map.values
-            .where((dynamic val) => val is Map || val is List)
-            .isEmpty &&
+  bool _canFlattenMap(Map<dynamic, dynamic> map) {
+    return map.values.where((dynamic val) => val is Map || val is List).isEmpty &&
         map.toString().length < maxWidth;
   }
 
-  bool _canFlattenList(List list) {
+  bool _canFlattenList(List<dynamic> list) {
     return list.length < 10 && list.toString().length < maxWidth;
   }
 
   void _printMapAsTable(
-    Map? map, {
+    Map<dynamic, dynamic>? map, {
     String? header,
     String color = _Colors.white,
     bool ht = false,
   }) {
     if (map == null || map.isEmpty) return;
     logPrint(_colorize('╔ $header ', color));
-    for (final entry in map.entries) {
+    for (final MapEntry<dynamic, dynamic> entry in map.entries) {
       _printKV(
         entry.key.toString(),
         ht ? '${_Colors.bold}${_Colors.brightCyan}${entry.value}' : entry.value,
@@ -468,5 +462,5 @@ class FilterArgs {
   bool get hasListData => data is List;
   bool get hasUint8ListData => data is Uint8List;
   bool get hasJsonData => hasMapData || hasListData;
-  const FilterArgs(this.isResponse, this.data);
+  const FilterArgs({required this.isResponse, required this.data});
 }

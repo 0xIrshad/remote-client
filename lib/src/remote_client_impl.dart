@@ -1,14 +1,15 @@
 import 'dart:math';
+
 import 'package:dio/dio.dart';
-import 'contracts/remote_client.dart';
-import 'contracts/connectivity_service.dart';
-import 'contracts/error_handler.dart';
-import 'contracts/response_parser.dart';
-import 'models/base_response.dart';
-import 'models/request_timeout_config.dart';
-import 'types/either.dart';
-import 'types/failure.dart';
-import 'services/response_parser_impl.dart';
+
+import 'package:remote_client/src/contracts/error_handler.dart';
+import 'package:remote_client/src/contracts/remote_client.dart';
+import 'package:remote_client/src/contracts/response_parser.dart';
+import 'package:remote_client/src/models/base_response.dart';
+import 'package:remote_client/src/models/request_timeout_config.dart';
+import 'package:remote_client/src/services/response_parser_impl.dart';
+import 'package:remote_client/src/types/either.dart';
+import 'package:remote_client/src/types/failure.dart';
 
 /// High-performance HTTP client implementation
 /// Performance optimizations:
@@ -19,59 +20,59 @@ import 'services/response_parser_impl.dart';
 /// - Request ID tracking for debugging
 class RemoteClientImpl implements RemoteClient {
   final Dio _dio;
-  final ConnectivityService _connectivityService;
   final ErrorHandler _errorHandler;
   final ResponseParser _responseParser;
   final bool _enableRequestId;
-  final _random = Random();
 
-  // Request ID generation state for better uniqueness
-  // Using a counter to ensure uniqueness even within the same millisecond
-  int _requestIdCounter = 0;
-  int _lastTimestamp = 0;
+  /// Secure random generator for UUID generation
+  /// Using secure random to prevent ID prediction and ensure uniqueness
+  static final Random _secureRandom = Random.secure();
 
   RemoteClientImpl({
     required Dio dio,
-    required ConnectivityService connectivityService,
     required ErrorHandler errorHandler,
     ResponseParser? responseParser,
     bool enableRequestId = true,
   }) : _dio = dio,
-       _connectivityService = connectivityService,
        _errorHandler = errorHandler,
        _responseParser = responseParser ?? const DefaultResponseParser(),
        _enableRequestId = enableRequestId;
 
-  /// Generate a unique request ID for tracking
-  /// Uses timestamp + counter + random for better uniqueness and efficiency
-  /// Format: timestamp_counter_random (e.g., 1234567890_1234_5678)
+  /// Generate a UUID v4 for request tracking
+  /// Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (RFC 4122)
+  /// Uses cryptographically secure random for uniqueness across instances
   String _generateRequestId() {
     if (!_enableRequestId) return '';
 
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    // Generate 16 random bytes
+    final List<int> bytes = List<int>.generate(
+      16,
+      (_) => _secureRandom.nextInt(256),
+    );
 
-    // Reset counter if timestamp changed (new millisecond)
-    if (timestamp != _lastTimestamp) {
-      _requestIdCounter = 0;
-      _lastTimestamp = timestamp;
-    } else {
-      // Increment counter for same millisecond
-      _requestIdCounter++;
-    }
+    // Set version (4) and variant bits per RFC 4122
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 1
 
-    // Generate random component (4 digits for compactness)
-    final random = _random.nextInt(10000);
+    // Convert to hex string with dashes
+    String hex(int byte) => byte.toRadixString(16).padLeft(2, '0');
 
-    // Combine: timestamp_counter_random
-    return '${timestamp}_${_requestIdCounter}_$random';
+    return '${hex(bytes[0])}${hex(bytes[1])}${hex(bytes[2])}${hex(bytes[3])}-'
+        '${hex(bytes[4])}${hex(bytes[5])}-'
+        '${hex(bytes[6])}${hex(bytes[7])}-'
+        '${hex(bytes[8])}${hex(bytes[9])}-'
+        '${hex(bytes[10])}${hex(bytes[11])}${hex(bytes[12])}${hex(bytes[13])}${hex(bytes[14])}${hex(bytes[15])}';
   }
 
   /// Merge options with request ID if enabled
   Options? _mergeOptionsWithRequestId(Options? options) {
     if (!_enableRequestId) return options;
 
-    final requestId = _generateRequestId();
-    final extra = <String, dynamic>{...?options?.extra, 'requestId': requestId};
+    final String requestId = _generateRequestId();
+    final Map<String, dynamic> extra = <String, dynamic>{
+      ...?options?.extra,
+      'requestId': requestId,
+    };
 
     return Options(
       method: options?.method,
@@ -100,8 +101,8 @@ class RemoteClientImpl implements RemoteClient {
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final mergedOptions = _mergeOptionsWithRequestId(baseOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? mergedOptions = _mergeOptionsWithRequestId(baseOptions);
     return _executeRequest<T>(
       () => _dio.get(
         endpoint,
@@ -122,8 +123,8 @@ class RemoteClientImpl implements RemoteClient {
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final mergedOptions = _mergeOptionsWithRequestId(baseOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? mergedOptions = _mergeOptionsWithRequestId(baseOptions);
     return _executeRequest<T>(
       () => _dio.post(
         endpoint,
@@ -144,8 +145,8 @@ class RemoteClientImpl implements RemoteClient {
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final mergedOptions = _mergeOptionsWithRequestId(baseOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? mergedOptions = _mergeOptionsWithRequestId(baseOptions);
     return _executeRequest<T>(
       () => _dio.put(
         endpoint,
@@ -166,8 +167,8 @@ class RemoteClientImpl implements RemoteClient {
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final mergedOptions = _mergeOptionsWithRequestId(baseOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? mergedOptions = _mergeOptionsWithRequestId(baseOptions);
     return _executeRequest<T>(
       () => _dio.patch(
         endpoint,
@@ -186,8 +187,8 @@ class RemoteClientImpl implements RemoteClient {
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final mergedOptions = _mergeOptionsWithRequestId(baseOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? mergedOptions = _mergeOptionsWithRequestId(baseOptions);
     return _executeRequest<void>(
       () => _dio.delete(
         endpoint,
@@ -202,15 +203,17 @@ class RemoteClientImpl implements RemoteClient {
   Future<Either<Failure, BaseResponse<T>>> multiPartPost<T>(
     String endpoint, {
     required FormData data,
-    Function(int, int)? onSendProgress,
+    void Function(int, int)? onSendProgress,
     T Function(Object?)? fromJson,
     CancelToken? cancelToken,
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final timeoutMergedOptions = _mergeOptionsWithRequestId(baseOptions);
-    final mergedOptions = _mergeMultipartOptions(timeoutMergedOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? timeoutMergedOptions = _mergeOptionsWithRequestId(
+      baseOptions,
+    );
+    final Options mergedOptions = _mergeMultipartOptions(timeoutMergedOptions);
     return _executeRequest<T>(
       () => _dio.post(
         endpoint,
@@ -227,15 +230,17 @@ class RemoteClientImpl implements RemoteClient {
   Future<Either<Failure, BaseResponse<T>>> multiPartPatch<T>(
     String endpoint, {
     required FormData data,
-    Function(int, int)? onSendProgress,
+    void Function(int, int)? onSendProgress,
     T Function(Object?)? fromJson,
     CancelToken? cancelToken,
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final timeoutMergedOptions = _mergeOptionsWithRequestId(baseOptions);
-    final mergedOptions = _mergeMultipartOptions(timeoutMergedOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? timeoutMergedOptions = _mergeOptionsWithRequestId(
+      baseOptions,
+    );
+    final Options mergedOptions = _mergeMultipartOptions(timeoutMergedOptions);
     return _executeRequest<T>(
       () => _dio.patch(
         endpoint,
@@ -252,13 +257,13 @@ class RemoteClientImpl implements RemoteClient {
   Future<Either<Failure, BaseResponse<void>>> download(
     String url,
     String path, {
-    Function(int, int)? onReceiveProgress,
+    void Function(int, int)? onReceiveProgress,
     CancelToken? cancelToken,
     Options? options,
     RequestTimeoutConfig? timeout,
   }) async {
-    final baseOptions = timeout?.mergeWithOptions(options) ?? options;
-    final mergedOptions = _mergeOptionsWithRequestId(baseOptions);
+    final Options? baseOptions = timeout?.mergeWithOptions(options) ?? options;
+    final Options? mergedOptions = _mergeOptionsWithRequestId(baseOptions);
     return _executeRequest<void>(
       () => _dio.download(
         url,
@@ -275,10 +280,10 @@ class RemoteClientImpl implements RemoteClient {
   /// Performance: Efficient map merging
   /// Preserves request ID from provided options
   Options _mergeMultipartOptions(Options? providedOptions) {
-    const baseSendTimeout = Duration(seconds: 60);
-    const baseReceiveTimeout = Duration(seconds: 60);
+    const Duration baseSendTimeout = Duration(seconds: 60);
+    const Duration baseReceiveTimeout = Duration(seconds: 60);
 
-    final baseOptions = Options(
+    final Options baseOptions = Options(
       sendTimeout: baseSendTimeout,
       receiveTimeout: baseReceiveTimeout,
       contentType: 'multipart/form-data',
@@ -289,7 +294,7 @@ class RemoteClientImpl implements RemoteClient {
     }
 
     // Merge headers maps
-    final mergedHeaders = <String, dynamic>{};
+    final Map<String, dynamic> mergedHeaders = <String, dynamic>{};
     if (baseOptions.headers != null) {
       mergedHeaders.addAll(baseOptions.headers!);
     }
@@ -298,7 +303,7 @@ class RemoteClientImpl implements RemoteClient {
     }
 
     // Merge extra maps (preserves requestId from providedOptions)
-    final mergedExtra = <String, dynamic>{};
+    final Map<String, dynamic> mergedExtra = <String, dynamic>{};
     if (baseOptions.extra != null) {
       mergedExtra.addAll(baseOptions.extra!);
     }
@@ -332,27 +337,26 @@ class RemoteClientImpl implements RemoteClient {
     );
   }
 
-  /// Execute request with error handling and connectivity check
-  /// Performance: Early exit on connectivity failure, efficient error handling
+  /// Execute request with error handling
+  /// Performance: Relies on Dio's native error handling for connectivity issues
+  /// rather than performing a blocking pre-flight check
   Future<Either<Failure, BaseResponse<T>>> _executeRequest<T>(
-    Future<Response> Function() request,
+    Future<Response<dynamic>> Function() request,
     T Function(Object?)? fromJson,
   ) async {
-    // Performance: Check connectivity first to avoid unnecessary network calls
-    if (!await _connectivityService.isConnected()) {
-      return const Left(NoInternet(message: 'No internet connection'));
-    }
-
     try {
-      final response = await request();
-      final baseResponse = _responseParser.parse<T>(response, fromJson);
+      final Response<dynamic> response = await request();
+      final BaseResponse<T> baseResponse = _responseParser.parse<T>(
+        response,
+        fromJson,
+      );
       return _validateResponse<T>(baseResponse);
     } on DioException catch (e) {
-      final failure = _errorHandler.handleDioException(e);
-      return Left(failure);
-    } catch (e) {
-      final failure = Unexpected(message: 'Unexpected error: $e');
-      return Left(failure);
+      final Failure failure = _errorHandler.handleDioException(e);
+      return Left<Failure, BaseResponse<T>>(failure);
+    } on Object catch (e) {
+      final Unexpected failure = Unexpected(message: 'Unexpected error: $e');
+      return Left<Failure, BaseResponse<T>>(failure);
     }
   }
 

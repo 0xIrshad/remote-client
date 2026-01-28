@@ -1,5 +1,5 @@
-import 'http_client.dart';
-import 'file_client.dart';
+import 'package:remote_client/src/contracts/file_client.dart';
+import 'package:remote_client/src/contracts/http_client.dart';
 
 /// Combined interface for clients that need both HTTP and file operations
 /// Follows composition over inheritance principle

@@ -38,7 +38,7 @@ class RetryPolicy {
     this.maxDelayMs = 10000,
     this.backoffMultiplier = 2.0,
     this.useJitter = true,
-    this.retryableStatusCodes = const {500, 502, 503, 504},
+    this.retryableStatusCodes = const <int>{500, 502, 503, 504},
     this.retryOnConnectionError = true,
     this.retryOnTimeout = true,
     this.retryOnServerError = true,
@@ -50,17 +50,7 @@ class RetryPolicy {
   /// - Exponential backoff with jitter
   /// - Retries on network errors, timeouts, and 5xx errors
   /// - Does not retry on 4xx client errors
-  static const RetryPolicy defaultPolicy = RetryPolicy(
-    maxRetries: 3,
-    initialDelayMs: 1000,
-    maxDelayMs: 10000,
-    backoffMultiplier: 2.0,
-    useJitter: true,
-    retryableStatusCodes: {500, 502, 503, 504},
-    retryOnConnectionError: true,
-    retryOnTimeout: true,
-    retryOnServerError: true,
-  );
+  static const RetryPolicy defaultPolicy = RetryPolicy();
 
   /// No retry policy - disables retry mechanism
   static const RetryPolicy noRetry = RetryPolicy(
@@ -77,12 +67,7 @@ class RetryPolicy {
     maxRetries: 5,
     initialDelayMs: 500,
     maxDelayMs: 30000,
-    backoffMultiplier: 2.0,
-    useJitter: true,
-    retryableStatusCodes: {500, 502, 503, 504, 429},
-    retryOnConnectionError: true,
-    retryOnTimeout: true,
-    retryOnServerError: true,
+    retryableStatusCodes: <int>{500, 502, 503, 504, 429},
   );
 
   /// Conservative retry policy for cost-sensitive scenarios
@@ -93,9 +78,7 @@ class RetryPolicy {
     initialDelayMs: 2000,
     maxDelayMs: 5000,
     backoffMultiplier: 1.5,
-    useJitter: true,
-    retryableStatusCodes: {503, 504},
-    retryOnConnectionError: true,
+    retryableStatusCodes: <int>{503, 504},
     retryOnTimeout: false,
     retryOnServerError: false,
   );

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
-import '../models/retry_policy.dart';
+
+import 'package:remote_client/src/models/retry_policy.dart';
 
 /// Interceptor that implements retry logic with exponential backoff and jitter
 /// Follows enterprise best practices for HTTP retry mechanisms
@@ -15,8 +17,11 @@ class RetryInterceptor extends Interceptor {
       _policy = policy ?? RetryPolicy.defaultPolicy;
 
   @override
-  void onError(DioException err, ErrorInterceptorHandler handler) async {
-    final retryCount = err.requestOptions.extra['retryCount'] as int? ?? 0;
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    final int retryCount = err.requestOptions.extra['retryCount'] as int? ?? 0;
 
     // Check if we should retry (early exit for performance)
     if (!_shouldRetry(err, retryCount)) {
@@ -25,28 +30,26 @@ class RetryInterceptor extends Interceptor {
     }
 
     // Calculate delay with exponential backoff and jitter
-    final delay = _calculateDelay(retryCount);
+    final int delay = _calculateDelay(retryCount);
 
     // Wait before retrying
-    await Future.delayed(Duration(milliseconds: delay));
+    await Future<void>.delayed(Duration(milliseconds: delay));
 
     // Update retry count
     err.requestOptions.extra['retryCount'] = retryCount + 1;
 
     // Clone the request options to avoid modifying the original
-    final options = err.requestOptions;
+    final RequestOptions options = err.requestOptions;
 
     // Retry the request
     try {
-      final response = await _retryRequest(options);
+      final Response<dynamic> response = await _retryRequest(options);
       handler.resolve(response);
-    } catch (e) {
-      // If retry also fails, proceed with the error
-      if (e is DioException) {
-        handler.next(e);
-      } else {
-        handler.next(err);
-      }
+    } on DioException catch (e) {
+      handler.next(e);
+    } on Object {
+      // If retry also fails with non-Dio error, proceed with the original error
+      handler.next(err);
     }
   }
 
@@ -82,10 +85,8 @@ class RetryInterceptor extends Interceptor {
         return _shouldRetryOnStatus(error.response?.statusCode);
 
       case DioExceptionType.badCertificate:
-        // Don't retry on certificate errors
-        return false;
-
-      default:
+      case DioExceptionType.cancel:
+        // Don't retry on certificate errors or cancelled requests
         return false;
     }
   }
@@ -121,7 +122,7 @@ class RetryInterceptor extends Interceptor {
   /// Performance: Uses efficient math operations
   int _calculateDelay(int retryCount) {
     // Exponential backoff: initialDelay * (multiplier ^ retryCount)
-    final exponentialDelay =
+    final int exponentialDelay =
         (_policy.initialDelayMs *
                 math.pow(_policy.backoffMultiplier, retryCount))
             .round();
@@ -131,7 +132,7 @@ class RetryInterceptor extends Interceptor {
     if (_policy.useJitter) {
       // Full jitter: random delay between 0 and exponential delay
       // This provides better distribution under high load
-      final jitter = _random.nextInt(exponentialDelay);
+      final int jitter = _random.nextInt(exponentialDelay);
       delay = jitter;
     } else {
       delay = exponentialDelay;
@@ -142,8 +143,8 @@ class RetryInterceptor extends Interceptor {
   }
 
   /// Retries the request using the same Dio instance
-  Future<Response<dynamic>> _retryRequest(RequestOptions options) async {
+  Future<Response<dynamic>> _retryRequest(RequestOptions options) {
     // Use Dio's fetch method to retry the request with the same options
-    return await _dio.fetch(options);
+    return _dio.fetch(options);
   }
 }

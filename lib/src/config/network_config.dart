@@ -25,10 +25,10 @@ class NetworkConfig {
 
   const NetworkConfig({
     required this.baseUrl,
-    this.connectTimeout = const Duration(seconds: 60),
-    this.receiveTimeout = const Duration(seconds: 60),
-    this.sendTimeout = const Duration(seconds: 60),
-    this.defaultHeaders = const {
+    this.connectTimeout = const Duration(seconds: 30),
+    this.receiveTimeout = const Duration(seconds: 30),
+    this.sendTimeout = const Duration(seconds: 30),
+    this.defaultHeaders = const <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },

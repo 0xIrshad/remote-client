@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
-import '../models/base_response.dart';
-import '../models/request_timeout_config.dart';
-import '../types/either.dart';
-import '../types/failure.dart';
+
+import 'package:remote_client/src/models/base_response.dart';
+import 'package:remote_client/src/models/request_timeout_config.dart';
+import 'package:remote_client/src/types/either.dart';
+import 'package:remote_client/src/types/failure.dart';
 
 /// Basic HTTP operations interface following ISP
 /// Clients only depend on the operations they actually use

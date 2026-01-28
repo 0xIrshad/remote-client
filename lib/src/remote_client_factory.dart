@@ -1,20 +1,21 @@
 import 'package:dio/dio.dart';
-import 'config/network_config.dart';
-import 'contracts/connectivity_service.dart';
-import 'contracts/error_handler.dart';
-import 'contracts/response_parser.dart';
-import 'contracts/token_provider.dart';
-import 'contracts/transformation_hooks.dart';
-import 'contracts/unauthorized_handler.dart';
-import 'interceptors/auth_interceptor.dart';
-import 'interceptors/dio_logger.dart';
-import 'interceptors/retry_interceptor.dart';
-import 'interceptors/transformation_interceptor.dart';
-import 'models/retry_policy.dart';
-import 'remote_client_impl.dart';
-import 'services/connectivity_service_impl.dart';
-import 'services/error_handler_impl.dart';
-import 'services/response_parser_impl.dart';
+
+import 'package:remote_client/src/config/network_config.dart';
+import 'package:remote_client/src/contracts/error_handler.dart';
+import 'package:remote_client/src/contracts/response_parser.dart';
+import 'package:remote_client/src/contracts/token_provider.dart';
+import 'package:remote_client/src/contracts/transformation_hooks.dart';
+import 'package:remote_client/src/contracts/unauthorized_handler.dart';
+import 'package:remote_client/src/interceptors/auth_interceptor.dart';
+import 'package:remote_client/src/interceptors/cache_interceptor.dart';
+import 'package:remote_client/src/interceptors/deduplication_interceptor.dart';
+import 'package:remote_client/src/interceptors/dio_logger.dart';
+import 'package:remote_client/src/interceptors/retry_interceptor.dart';
+import 'package:remote_client/src/interceptors/transformation_interceptor.dart';
+import 'package:remote_client/src/models/retry_policy.dart';
+import 'package:remote_client/src/remote_client_impl.dart';
+import 'package:remote_client/src/services/error_handler_impl.dart';
+import 'package:remote_client/src/services/response_parser_impl.dart';
 
 /// Factory for creating RemoteClient instances
 /// Performance-optimized with connection pooling and efficient defaults
@@ -26,19 +27,21 @@ class RemoteClientFactory {
     NetworkConfig? networkConfig,
     TokenProvider? tokenProvider,
     UnauthorizedHandler? unauthorizedHandler,
-    ConnectivityService? connectivityService,
     ErrorHandler? errorHandler,
     ResponseParser? responseParser,
     RetryPolicy? retryPolicy,
     TransformationHooks? transformationHooks,
+    DeduplicationConfig? deduplicationConfig,
+    CacheConfig? cacheConfig,
     bool enableLogging = false,
     String? locale,
   }) {
     // Use provided config or create default
-    final config = networkConfig ?? NetworkConfig(baseUrl: baseUrl);
+    final NetworkConfig config =
+        networkConfig ?? NetworkConfig(baseUrl: baseUrl);
 
     // Create Dio with performance optimizations
-    final dio = Dio(
+    final Dio dio = Dio(
       BaseOptions(
         baseUrl: config.baseUrl,
         connectTimeout: config.connectTimeout,
@@ -53,22 +56,49 @@ class RemoteClientFactory {
       ),
     );
 
-    // Create interceptors in correct order for performance
-    final interceptors = <Interceptor>[];
+    // Interceptor execution order in Dio:
+    // - Request: interceptors are called in LIST ORDER (first added → last added)
+    // - Response/Error: interceptors are called in REVERSE ORDER (last added → first added)
+    //
+    // Order rationale:
+    // 0. Deduplication: First to prevent duplicate requests from even starting
+    // 1. Cache: Check cache before making network request
+    // 2. Retry: Handle errors, allows retry after auth refresh
+    // 3. Transformation: Transform request data before auth headers are added
+    // 4. Auth: Add auth headers (QueuedInterceptor handles 401 retry internally)
+    // 5. Logger: Last in list = logs final request, logs raw response first
+    final List<Interceptor> interceptors = <Interceptor>[];
 
-    // 1. Retry interceptor (should be first)
+    // 0. Deduplication interceptor (optional)
+    // Request order: 1st (prevents duplicate requests from even starting)
+    if (deduplicationConfig != null) {
+      interceptors.add(DeduplicationInterceptor(config: deduplicationConfig));
+    }
+
+    // 1. Cache interceptor (optional)
+    // Request order: 2nd (returns cached response if available)
+    // Response order: Caches successful responses
+    if (cacheConfig != null) {
+      interceptors.add(CacheInterceptor(config: cacheConfig));
+    }
+
+    // 2. Retry interceptor
+    // Request order: 3rd | Error order: Last (can retry after all other error handlers)
     if (retryPolicy != null && retryPolicy != RetryPolicy.noRetry) {
       interceptors.add(RetryInterceptor(dio: dio, policy: retryPolicy));
     }
 
-    // 2. Transformation interceptor (before auth to transform request data)
+    // 2. Transformation interceptor
+    // Request order: 2nd (transforms data before auth) | Response order: 2nd-to-last
     if (transformationHooks != null) {
       interceptors.add(TransformationInterceptor(hooks: transformationHooks));
     }
 
-    // 3. Auth interceptor
+    // 3. Auth interceptor (with token refresh capability)
+    // Request order: 3rd (adds auth headers) | Error order: handles 401 internally
     interceptors.add(
       AuthInterceptor(
+        dio: dio,
         tokenProvider: tokenProvider ?? const NoAuthTokenProvider(),
         unauthorizedHandler:
             unauthorizedHandler ?? const NoOpUnauthorizedHandler(),
@@ -76,7 +106,8 @@ class RemoteClientFactory {
       ),
     );
 
-    // 4. Logging interceptor (optional, last for minimal overhead)
+    // 4. Logging interceptor (optional)
+    // Request order: Last (logs final request) | Response order: First (logs raw response)
     if (enableLogging) {
       interceptors.add(DioLogger());
     }
@@ -86,7 +117,6 @@ class RemoteClientFactory {
     // Create and return client
     return RemoteClientImpl(
       dio: dio,
-      connectivityService: connectivityService ?? ConnectivityServiceImpl(),
       errorHandler: errorHandler ?? ErrorHandlerImpl(),
       responseParser: responseParser ?? const DefaultResponseParser(),
     );
@@ -101,11 +131,12 @@ class RemoteClientFactory {
   NetworkConfig? _networkConfig;
   TokenProvider? _tokenProvider;
   UnauthorizedHandler? _unauthorizedHandler;
-  ConnectivityService? _connectivityService;
   ErrorHandler? _errorHandler;
   ResponseParser? _responseParser;
   RetryPolicy? _retryPolicy;
   TransformationHooks? _transformationHooks;
+  DeduplicationConfig? _deduplicationConfig;
+  CacheConfig? _cacheConfig;
   bool _enableLogging = false;
   String? _locale;
 
@@ -133,12 +164,6 @@ class RemoteClientFactory {
     return this;
   }
 
-  /// Set connectivity service
-  RemoteClientFactory withConnectivityService(ConnectivityService service) {
-    _connectivityService = service;
-    return this;
-  }
-
   /// Set error handler
   RemoteClientFactory withErrorHandler(ErrorHandler handler) {
     _errorHandler = handler;
@@ -163,6 +188,18 @@ class RemoteClientFactory {
     return this;
   }
 
+  /// Set deduplication config to prevent duplicate concurrent requests
+  RemoteClientFactory withDeduplication(DeduplicationConfig config) {
+    _deduplicationConfig = config;
+    return this;
+  }
+
+  /// Set cache config for HTTP response caching
+  RemoteClientFactory withCache(CacheConfig config) {
+    _cacheConfig = config;
+    return this;
+  }
+
   /// Enable logging
   RemoteClientFactory enableLogging({bool enabled = true}) {
     _enableLogging = enabled;
@@ -177,18 +214,19 @@ class RemoteClientFactory {
       );
     }
 
-    final baseUrl = _baseUrl ?? _networkConfig!.baseUrl;
+    final String effectiveBaseUrl = _baseUrl ?? _networkConfig!.baseUrl;
 
     return RemoteClientFactory.create(
-      baseUrl: baseUrl,
+      baseUrl: effectiveBaseUrl,
       networkConfig: _networkConfig,
       tokenProvider: _tokenProvider,
       unauthorizedHandler: _unauthorizedHandler,
-      connectivityService: _connectivityService,
       errorHandler: _errorHandler,
       responseParser: _responseParser,
       retryPolicy: _retryPolicy,
       transformationHooks: _transformationHooks,
+      deduplicationConfig: _deduplicationConfig,
+      cacheConfig: _cacheConfig,
       enableLogging: _enableLogging,
       locale: _locale,
     );

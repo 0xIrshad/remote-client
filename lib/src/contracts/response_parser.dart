@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import '../models/base_response.dart';
+
+import 'package:remote_client/src/models/base_response.dart';
 
 /// Abstract response parser interface
 /// Allows different API response formats to be supported by providing
@@ -10,5 +11,8 @@ abstract class ResponseParser {
   /// [response] is the raw Dio response
   /// [fromJson] is the optional function to deserialize the data field
   /// Returns a BaseResponse with parsed data
-  BaseResponse<T> parse<T>(Response response, T Function(Object?)? fromJson);
+  BaseResponse<T> parse<T>(
+    Response<dynamic> response,
+    T Function(Object?)? fromJson,
+  );
 }

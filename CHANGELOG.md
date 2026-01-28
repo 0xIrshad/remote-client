@@ -52,7 +52,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zero external dependencies (only Dio)
 - Production-ready with enterprise-grade features
 
-## [0.0.1] - TBD
+## [1.0.0] - 2026-01-28
 
 ### Added
-- Initial stable release of Remote Client package
+- **New Interceptors**: Added `CacheInterceptor` for flexible caching strategies and `DeduplicationInterceptor` to prevent duplicate parallel requests.
+- **Linting**: Integrated `very_good_analysis` for stricter code quality rules.
+
+### Enhanced
+- **Either Monad**: Significantly expanded `Either` type with functional operators including `map`, `flatMap`, `getOrElse`, `fold`, `tap`, and `swap` for robust error handling chaining.
+- **Type Safety**: Improved `ResponseParser` implementation with stricter type checking and error handling during JSON parsing.
+- **Observability**: Enhanced error logging to include Request ID context for better debugging.
+
+### Maintenance
+- **Dependencies**: Updated `dio` to `^5.9.1`.

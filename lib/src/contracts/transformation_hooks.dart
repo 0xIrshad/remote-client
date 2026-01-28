@@ -7,8 +7,7 @@ typedef RequestTransformHook =
 
 /// Hook for transforming response data before parsing
 /// Useful for decryption, data normalization, or extracting nested data
-typedef ResponseTransformHook =
-    dynamic Function(String endpoint, Response response);
+typedef ResponseTransformHook = dynamic Function(String endpoint, Response<dynamic> response);
 
 /// Combined transformation hooks for request and response
 /// Both hooks are optional - provide only what you need
@@ -29,15 +28,11 @@ class TransformationHooks {
   });
 
   /// Empty hooks (no transformations)
-  const TransformationHooks.empty()
-    : onRequestTransform = null,
-      onResponseTransform = null;
+  const TransformationHooks.empty() : onRequestTransform = null, onResponseTransform = null;
 
   /// Create hooks with only request transformation
-  TransformationHooks.requestOnly(this.onRequestTransform)
-    : onResponseTransform = null;
+  TransformationHooks.requestOnly(this.onRequestTransform) : onResponseTransform = null;
 
   /// Create hooks with only response transformation
-  TransformationHooks.responseOnly(this.onResponseTransform)
-    : onRequestTransform = null;
+  TransformationHooks.responseOnly(this.onResponseTransform) : onRequestTransform = null;
 }

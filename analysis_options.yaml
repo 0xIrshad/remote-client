@@ -1,4 +1,109 @@
-include: package:flutter_lints/flutter.yaml
+include: package:very_good_analysis/analysis_options.yaml
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  
+  errors:
+    missing_return: error
+    missing_required_param: error
+    must_be_immutable: error
+    invalid_assignment: error
+    dead_code: error
+    unused_import: error
+    unused_local_variable: error
+    
+  exclude:
+    - '**/*.g.dart'
+    - '**/*.freezed.dart'
+    - '**/*.gr.dart'
+    - 'lib/generated/**'
+    - 'build/**'
+    - '.dart_tool/**'
+
+linter:
+  rules:    
+    # Disabled rules
+    avoid_returning_this: false  # Required for builder pattern (RemoteClientFactory)
+    
+    # Error Prevention
+    avoid_empty_else: true
+    avoid_type_to_string: true
+    cancel_subscriptions: true
+    close_sinks: true
+    discarded_futures: true
+    literal_only_boolean_expressions: true
+    no_duplicate_case_values: true
+    throw_in_finally: true
+    unnecessary_statements: true
+    valid_regexps: true
+    
+    # Type Safety
+    always_declare_return_types: true
+    avoid_init_to_null: true
+    avoid_null_checks_in_equality_operators: true
+    await_only_futures: true
+    null_check_on_nullable_type_parameter: true
+    type_annotate_public_apis: true
+    collection_methods_unrelated_type: true
+    
+    # Flutter Best Practices
+    avoid_unnecessary_containers: true
+    sized_box_for_whitespace: true
+    sized_box_shrink_expand: true
+    sort_child_properties_last: true
+    use_build_context_synchronously: true
+    use_colored_box: true
+    use_decorated_box: true
+    use_full_hex_values_for_flutter_colors: true
+    use_key_in_widget_constructors: true
+    
+    # Modern Dart 3.x Rules
+    avoid_final_parameters: true
+    combinators_ordering: true
+    dangling_library_doc_comments: true
+    implicit_call_tearoffs: true
+    no_literal_bool_comparisons: true
+    unnecessary_breaks: true
+    use_string_in_part_of_directives: true
+    noop_primitive_operations: true
+    use_enums: true
+    use_super_parameters: true
+    
+    # Code Quality
+    avoid_bool_literals_in_conditional_expressions: true
+    avoid_catches_without_on_clauses: true
+    avoid_dynamic_calls: true
+    avoid_redundant_argument_values: true
+    cascade_invocations: true
+    prefer_asserts_in_initializer_lists: true
+    prefer_final_locals: true
+    prefer_mixin: true
+    use_late_for_private_fields_and_variables: true
+        
+    # Style preferences (team decision)
+    always_put_required_named_parameters_first: true
+    always_specify_types: true
+    avoid_classes_with_only_static_members: false
+    lines_longer_than_80_chars: false
+    one_member_abstracts: false
+    prefer_double_quotes: false
+    prefer_expression_function_bodies: false
+    prefer_relative_imports: false
+    sort_constructors_first: false
+    sort_pub_dependencies: true
+    
+    # Pragmatic exceptions
+    avoid_print: true     
+    diagnostic_describe_all_properties: false
+    flutter_style_todos: false
+    prefer_const_constructors: true 
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    unawaited_futures: true 
+
+    # Too verbose for existing codebase
+    public_member_api_docs: false
+    omit_local_variable_types: false

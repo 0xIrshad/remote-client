@@ -1,4 +1,4 @@
-import '../contracts/connectivity_service.dart';
+import 'package:remote_client/src/contracts/connectivity_service.dart';
 
 /// Fallback connectivity service used on platforms where `dart:io` is
 /// unavailable (web/WASM).
@@ -15,7 +15,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
   bool? _cachedResult;
   DateTime? _cacheTimestamp;
 
-  static const List<String> defaultHosts = [
+  static const List<String> defaultHosts = <String>[
     'google.com',
     'cloudflare.com',
     'example.com',
@@ -36,7 +36,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
     Duration? cacheTTL,
   }) {
     return ConnectivityServiceImpl(
-      checkHosts: [host],
+      checkHosts: <String>[host],
       timeout: timeout,
       cacheTTL: cacheTTL,
     );
@@ -73,7 +73,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
       return _cachedResult!;
     }
 
-    final result = await _performConnectivityCheck();
+    final bool result = await _performConnectivityCheck();
     _cachedResult = result;
     _cacheTimestamp = DateTime.now();
     return result;

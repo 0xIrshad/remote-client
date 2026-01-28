@@ -1,22 +1,24 @@
 import 'package:dio/dio.dart';
-import '../contracts/error_handler.dart';
-import '../models/base_response.dart';
-import '../types/either.dart';
-import '../types/failure.dart';
+
+import 'package:remote_client/src/contracts/error_handler.dart';
+import 'package:remote_client/src/models/base_response.dart';
+import 'package:remote_client/src/types/either.dart';
+import 'package:remote_client/src/types/failure.dart';
 
 /// Default error handler implementation
 class ErrorHandlerImpl implements ErrorHandler {
   @override
   Failure handleDioException(DioException exception) {
     // Extract request ID for better error context
-    final requestId = exception.requestOptions.extra['requestId'] as String?;
-    final requestIdContext = requestId != null
+    final String? requestId =
+        exception.requestOptions.extra['requestId'] as String?;
+    final String requestIdContext = requestId != null
         ? ' [Request ID: $requestId]'
         : '';
 
     // Build enhanced error message with context
     String buildMessage(String baseMessage) {
-      final message = baseMessage + requestIdContext;
+      final String message = baseMessage + requestIdContext;
       if (exception.requestOptions.uri.toString().isNotEmpty) {
         return '$message [URI: ${exception.requestOptions.uri}]';
       }
@@ -50,7 +52,7 @@ class ErrorHandlerImpl implements ErrorHandler {
 
       case DioExceptionType.unknown:
         // Check for socket/network errors without importing dart:io
-        final errorType = exception.error?.runtimeType.toString() ?? '';
+        final String errorType = exception.error?.runtimeType.toString() ?? '';
         if (errorType.contains('SocketException') ||
             errorType.contains('NetworkException')) {
           return NoInternet(
@@ -86,28 +88,40 @@ class ErrorHandlerImpl implements ErrorHandler {
       case 201:
       case 202:
       case 204:
-        return Right(response);
+        return Right<Failure, BaseResponse<T>>(response);
       case 400:
-        return Left(BadRequest(message: response.message));
+        return Left<Failure, BaseResponse<T>>(
+          BadRequest(message: response.message),
+        );
       case 401:
-        return Left(Unauthorized(message: response.message));
+        return Left<Failure, BaseResponse<T>>(
+          Unauthorized(message: response.message),
+        );
       case 403:
-        return Left(Unauthorized(message: response.message));
+        return Left<Failure, BaseResponse<T>>(
+          Unauthorized(message: response.message),
+        );
       case 404:
-        return Left(NotFound(message: response.message));
+        return Left<Failure, BaseResponse<T>>(
+          NotFound(message: response.message),
+        );
       case 422:
-        return Left(BadRequest(message: response.message));
+        return Left<Failure, BaseResponse<T>>(
+          BadRequest(message: response.message),
+        );
       case 500:
-        return Left(InternalServerError(message: response.message));
+        return Left<Failure, BaseResponse<T>>(
+          InternalServerError(message: response.message),
+        );
       case 503:
-        return Left(
+        return Left<Failure, BaseResponse<T>>(
           ServiceUnavailable(
             message:
                 "Service temporarily unavailable. ${response.message ?? ''}",
           ),
         );
       default:
-        return Left(
+        return Left<Failure, BaseResponse<T>>(
           BadResponse(message: "Unknown error: ${response.message ?? ''}"),
         );
     }
@@ -121,16 +135,18 @@ class ErrorHandlerImpl implements ErrorHandler {
 
     // Try to extract message from response
     if (response?.data is Map<String, dynamic>) {
-      message = response?.data['message'] as String?;
+      final Map<String, dynamic> dataMap =
+          response?.data as Map<String, dynamic>;
+      message = dataMap['message'] as String?;
     }
 
     message ??= response?.statusMessage ?? 'Invalid server response';
 
     // Add request ID context to message
-    final enhancedMessage = message + requestIdContext;
+    final String enhancedMessage = message + requestIdContext;
 
     // Add status code context if available
-    final statusCodeContext = response?.statusCode != null
+    final String statusCodeContext = response?.statusCode != null
         ? ' [Status: ${response?.statusCode}]'
         : '';
 

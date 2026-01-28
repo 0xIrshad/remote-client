@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
-import '../models/base_response.dart';
-import '../types/either.dart';
-import '../types/failure.dart';
+
+import 'package:remote_client/src/models/base_response.dart';
+import 'package:remote_client/src/types/either.dart';
+import 'package:remote_client/src/types/failure.dart';
 
 /// Error handler abstraction for processing Dio exceptions and validating responses
 abstract class ErrorHandler {

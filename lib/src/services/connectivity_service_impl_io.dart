@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
-import '../contracts/connectivity_service.dart';
+import 'package:remote_client/src/contracts/connectivity_service.dart';
 
 /// Default connectivity service implementation using DNS lookup.
 ///
@@ -25,7 +26,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
 
   /// Default reliable hosts for connectivity checking
   /// Uses multiple public DNS servers and popular services as fallbacks
-  static const List<String> defaultHosts = [
+  static const List<String> defaultHosts = <String>[
     '8.8.8.8', // Google DNS (most reliable)
     '1.1.1.1', // Cloudflare DNS (fast fallback)
     'google.com', // Google (common fallback)
@@ -49,7 +50,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
     Duration? cacheTTL,
   }) {
     return ConnectivityServiceImpl(
-      checkHosts: [host],
+      checkHosts: <String>[host],
       timeout: timeout,
       cacheTTL: cacheTTL,
     );
@@ -90,7 +91,7 @@ class ConnectivityServiceImpl implements ConnectivityService {
     }
 
     // Cache expired or not set, perform actual check
-    final result = await _performConnectivityCheck();
+    final bool result = await _performConnectivityCheck();
 
     // Update cache
     _cachedResult = result;
@@ -100,28 +101,55 @@ class ConnectivityServiceImpl implements ConnectivityService {
   }
 
   /// Perform the actual connectivity check
+  /// Uses parallel lookup for all hosts - returns true on first success
+  /// This is much faster than sequential checking (worst case: timeout vs N*timeout)
+  ///
+  /// Performance optimization: Returns immediately when ANY host succeeds,
+  /// rather than waiting for all hosts to complete (which would wait for slowest/timeout).
   Future<bool> _performConnectivityCheck() async {
-    // Try each host in sequence until one succeeds
-    for (final host in checkHosts) {
-      try {
-        final result = await InternetAddress.lookup(host).timeout(
-          timeout,
-          onTimeout: () => throw const SocketException('Timeout'),
-        );
-        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-          return true;
-        }
-      } on SocketException catch (_) {
-        // Try next host
-        continue;
-      } catch (_) {
-        // Try next host
-        continue;
-      }
+    if (checkHosts.isEmpty) {
+      return false;
     }
 
-    // All hosts failed
-    return false;
+    // Use Completer for early return on first success
+    final Completer<bool> completer = Completer<bool>();
+    int failureCount = 0;
+    final int totalHosts = checkHosts.length;
+
+    for (final String host in checkHosts) {
+      await _lookupHost(host).then((bool success) {
+        if (completer.isCompleted) return;
+
+        if (success) {
+          // First success - return immediately
+          completer.complete(true);
+        } else {
+          failureCount++;
+          // All hosts failed - return false
+          if (failureCount == totalHosts) {
+            completer.complete(false);
+          }
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
+  /// Lookup a single host and return success/failure
+  Future<bool> _lookupHost(String host) async {
+    try {
+      final List<InternetAddress> result = await InternetAddress.lookup(host)
+          .timeout(
+            timeout,
+            onTimeout: () => throw const SocketException('Timeout'),
+          );
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } on SocketException catch (_) {
+      return false;
+    } on Object catch (_) {
+      return false;
+    }
   }
 
   /// Clear the connectivity cache

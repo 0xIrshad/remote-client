@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
-import '../contracts/response_parser.dart';
-import '../models/base_response.dart';
+
+import 'package:remote_client/src/contracts/response_parser.dart';
+import 'package:remote_client/src/models/base_response.dart';
 
 /// Default response parser implementation
 /// Expects API responses in the following format:
@@ -35,29 +36,29 @@ class DefaultResponseParser implements ResponseParser {
   });
 
   @override
-  BaseResponse<T> parse<T>(Response response, T Function(Object?)? fromJson) {
-    final responseData = response.data;
+  BaseResponse<T> parse<T>(
+    Response<dynamic> response,
+    T Function(Object?)? fromJson,
+  ) {
+    final dynamic responseData = response.data;
 
     // Handle case where response data is not a map
     if (responseData is! Map<String, dynamic>) {
       return BaseResponse<T>(
         statusCode: response.statusCode ?? 0,
         success: defaultSuccess,
-        data: null,
-        message: null,
-        meta: null,
       );
     }
 
     // Extract raw data
-    final rawData = responseData[dataKey];
+    final Object? rawData = responseData[dataKey];
 
     // Parse data if fromJson is provided
     T? parsedData;
     if (rawData != null && fromJson != null) {
       try {
         parsedData = fromJson(rawData);
-      } catch (e) {
+      } on Object {
         // If parsing fails, keep data as null
         // Error handler will deal with it
         parsedData = null;
@@ -68,9 +69,10 @@ class DefaultResponseParser implements ResponseParser {
     }
 
     // Extract other fields
-    final success = responseData[successKey] as bool? ?? defaultSuccess;
-    final message = responseData[messageKey] as String?;
-    final meta = responseData[metaKey] as Map<String, dynamic>?;
+    final bool success = responseData[successKey] as bool? ?? defaultSuccess;
+    final String? message = responseData[messageKey] as String?;
+    final Map<String, dynamic>? meta =
+        responseData[metaKey] as Map<String, dynamic>?;
 
     return BaseResponse<T>(
       statusCode: response.statusCode ?? 0,
@@ -88,14 +90,17 @@ class DirectResponseParser implements ResponseParser {
   const DirectResponseParser();
 
   @override
-  BaseResponse<T> parse<T>(Response response, T Function(Object?)? fromJson) {
-    final responseData = response.data;
+  BaseResponse<T> parse<T>(
+    Response<dynamic> response,
+    T Function(Object?)? fromJson,
+  ) {
+    final dynamic responseData = response.data;
 
     T? parsedData;
     if (responseData != null && fromJson != null) {
       try {
         parsedData = fromJson(responseData);
-      } catch (e) {
+      } on Object {
         parsedData = null;
       }
     } else if (responseData != null) {
@@ -109,8 +114,6 @@ class DirectResponseParser implements ResponseParser {
           response.statusCode! >= 200 &&
           response.statusCode! < 300,
       data: parsedData,
-      message: null,
-      meta: null,
     );
   }
 }
