@@ -1,6 +1,6 @@
 name: remote_client
 description: A high-performance, enterprise-grade HTTP client package for Flutter/Dart with retry mechanisms, authentication, error handling, and connectivity checking.
-version: 1.0.0
+version: 1.0.1
 homepage: https://github.com/0xIrshad/remote-client
 repository: https://github.com/0xIrshad/remote-client
 

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-01-29
+
+### Added
+- **CancelToken**: Added `CancelToken` support for request cancellation.
+- **Options**: Added `Options` support for request options.
+
+## [1.0.0] - 2026-01-28
+
+### Added
+- **New Interceptors**: Added `CacheInterceptor` for flexible caching strategies and `DeduplicationInterceptor` to prevent duplicate parallel requests.
+- **Linting**: Integrated `very_good_analysis` for stricter code quality rules.
+
+### Enhanced
+- **Either Monad**: Significantly expanded `Either` type with functional operators including `map`, `flatMap`, `getOrElse`, `fold`, `tap`, and `swap` for robust error handling chaining.
+- **Type Safety**: Improved `ResponseParser` implementation with stricter type checking and error handling during JSON parsing.
+- **Observability**: Enhanced error logging to include Request ID context for better debugging.
+
+### Maintenance
+- **Dependencies**: Updated `dio` to `^5.9.1`.
+
 ## [0.0.1-dev.3] - 2025-11-07
 
 ### Fixed
@@ -52,16 +72,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zero external dependencies (only Dio)
 - Production-ready with enterprise-grade features
 
-## [1.0.0] - 2026-01-28
 
-### Added
-- **New Interceptors**: Added `CacheInterceptor` for flexible caching strategies and `DeduplicationInterceptor` to prevent duplicate parallel requests.
-- **Linting**: Integrated `very_good_analysis` for stricter code quality rules.
-
-### Enhanced
-- **Either Monad**: Significantly expanded `Either` type with functional operators including `map`, `flatMap`, `getOrElse`, `fold`, `tap`, and `swap` for robust error handling chaining.
-- **Type Safety**: Improved `ResponseParser` implementation with stricter type checking and error handling during JSON parsing.
-- **Observability**: Enhanced error logging to include Request ID context for better debugging.
-
-### Maintenance
-- **Dependencies**: Updated `dio` to `^5.9.1`.

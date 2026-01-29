@@ -25,6 +25,9 @@
 /// ```
 library;
 
+export 'package:dio/src/cancel_token.dart';
+export 'package:dio/src/options.dart';
+
 export 'src/config/network_config.dart';
 export 'src/contracts/connectivity_service.dart';
 export 'src/contracts/error_handler.dart';
